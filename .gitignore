@@ -1,0 +1,9 @@
+Game/[Ll]ibrary/
+Game/[Tt]emp/
+Game/[Oo]bj/
+Game/[Bb]uild/
+Game/[Ll]ogs/
+Game/[Uu]ser[Ss]ettings/
+Game/*.csproj
+Game/*.sln
+Game/build.log

@@ -1,0 +1,62 @@
+name: Build Blind Box Wars (Windows)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Unity
+        id: unity-setup
+        uses: RageAgainstThePixel/unity-setup@v2
+        with:
+          unity-version: '2022.3'
+          version-file: 'None'
+          build-targets: StandaloneWindows64
+
+      - name: Activate Unity Personal license
+        uses: RageAgainstThePixel/activate-unity-license@v2
+        with:
+          license: 'Personal'
+          username: ${{ secrets.UNITY_USERNAME }}
+          password: ${{ secrets.UNITY_PASSWORD }}
+
+      - name: Build Windows player
+        shell: pwsh
+        run: |
+          $editor = "${{ steps.unity-setup.outputs.unity-editor-path }}"
+          $proj = Join-Path $env:GITHUB_WORKSPACE "Game"
+          $log = Join-Path $proj "build.log"
+          Write-Host "Editor: $editor"
+          $args = @('-batchmode', '-nographics', '-quit', '-projectPath', "`"$proj`"", '-executeMethod', 'BBBuild.Build', '-logFile', "`"$log`"")
+          $p = Start-Process -FilePath $editor -ArgumentList $args -Wait -PassThru -NoNewWindow
+          if (Test-Path $log) { Get-Content $log -Tail 250 }
+          if ($p.ExitCode -ne 0) { Write-Error "Unity exited with $($p.ExitCode)"; exit 1 }
+          if (!(Test-Path "$proj\Build\BlindBoxWars\BlindBoxWars.exe")) { Write-Error "No exe produced"; exit 1 }
+          Compress-Archive -Path "$proj\Build\BlindBoxWars\*" -DestinationPath "$env:GITHUB_WORKSPACE\BlindBoxWars-Windows.zip"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-build-log
+          path: Game/build.log
+          if-no-files-found: ignore
+
+      - name: Publish download (GitHub Release)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Blind Box Wars - build ${{ github.run_number }}
+          body: Download BlindBoxWars-Windows.zip, unzip it, and run BlindBoxWars.exe.
+          files: BlindBoxWars-Windows.zip
+          make_latest: true
