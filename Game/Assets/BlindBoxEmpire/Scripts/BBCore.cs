@@ -14,6 +14,8 @@ using UnityEngine.InputSystem;
 public static class BBPal
 {
     public static Color Hex(string h) { Color c; ColorUtility.TryParseHtmlString(h, out c); return c; }
+    public static Color Dim(Color c, float k) { return BB.Dim(c, k); }
+    public static Color Lamp(Color c) { return BB.Lamp(c); }
 
     public static readonly Color Asphalt = Hex("#45414F");
     public static readonly Color AsphaltDark = Hex("#3A3644");
