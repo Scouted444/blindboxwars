@@ -1,0 +1,15 @@
+ 0.2 kb	 0.0% Packages/com.unity.test-framework/UnityEngine.TestRunner/Assertions/OutOfOrderExpectedLogMessageException.cs
+ 0.2 kb	 0.0% Packages/com.unity.test-framework/UnityEngine.TestRunner/Assertions/UnexpectedLogMessageException.cs
+ 0.1 kb	 0.0% Packages/com.unity.services.core/Runtime/Core.Internal/Registry/DependencyTreeExceptions.cs
+ 0.1 kb	 0.0% Packages/com.unity.test-framework/UnityEngine.TestRunner/Assertions/UnityTestTimeoutException.cs
+ 0.1 kb	 0.0% Packages/com.unity.test-framework/UnityEngine.TestRunner/Assertions/UnhandledLogMessageException.cs
+ 0.1 kb	 0.0% Packages/com.unity.test-framework/UnityEngine.TestRunner/Assertions/InvalidSignatureException.cs
+ 0.1 kb	 0.0% Packages/com.unity.services.core/Runtime/Core.Internal/Registry/CircularDependencyException.cs
+ 0.1 kb	 0.0% Packages/com.unity.purchasing/Runtime/SecurityCore/IAPSecurityException.cs
+ 0.1 kb	 0.0% Packages/com.unity.services.core/Runtime/Core/Initialization/UnityProjectNotLinkedException.cs
+ 0.1 kb	 0.0% Packages/com.unity.services.core/Runtime/Core/Initialization/ServicesInitializationException.cs
+ 0.1 kb	 0.0% Packages/com.unity.purchasing/Runtime/Purchasing/Telemetry/IapTelemetryException.cs
+ 0.1 kb	 0.0% Packages/com.unity.services.core/Runtime/Core/Initialization/ServicesCreationException.cs
+ 0.1 kb	 0.0% Packages/com.unity.services.core/Runtime/Core/RequestFailedException.cs
+ 0.1 kb	 0.0% Packages/com.unity.services.core/Runtime/Core.Internal/Registry/HashExceptions.cs
+BUILD RESULT: Succeeded  errors: 0
