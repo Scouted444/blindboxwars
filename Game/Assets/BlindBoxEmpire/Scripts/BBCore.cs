@@ -90,6 +90,18 @@ public static class BBInp
     public static bool Interact { get { return K != null && K.eKey.wasPressedThisFrame; } }
     public static bool Phone { get { return K != null && K.tabKey.wasPressedThisFrame; } }
     public static bool Esc { get { return K != null && K.escapeKey.wasPressedThisFrame; } }
+    public static bool Rotate { get { return K != null && K.rKey.wasPressedThisFrame; } }
+    public static bool Drop { get { return K != null && K.gKey.wasPressedThisFrame; } }
+    public static float Scroll() { var m = Mouse.current; return m == null ? 0f : Mathf.Sign(m.scroll.ReadValue().y) * (Mathf.Abs(m.scroll.ReadValue().y) > 0.01f ? 1 : 0); }
+    public static int SlotKey()
+    {
+        var k = K; if (k == null) return -1;
+        if (k.digit1Key.wasPressedThisFrame) return 0; if (k.digit2Key.wasPressedThisFrame) return 1;
+        if (k.digit3Key.wasPressedThisFrame) return 2; if (k.digit4Key.wasPressedThisFrame) return 3;
+        if (k.digit5Key.wasPressedThisFrame) return 4; if (k.digit6Key.wasPressedThisFrame) return 5;
+        if (k.digit7Key.wasPressedThisFrame) return 6; if (k.digit8Key.wasPressedThisFrame) return 7;
+        return -1;
+    }
 #else
     public static Vector2 Move() { return new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")); }
     public static Vector2 Look() { return new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y")) * 2f; }
@@ -98,6 +110,14 @@ public static class BBInp
     public static bool Interact { get { return Input.GetKeyDown(KeyCode.E); } }
     public static bool Phone { get { return Input.GetKeyDown(KeyCode.Tab); } }
     public static bool Esc { get { return Input.GetKeyDown(KeyCode.Escape); } }
+    public static bool Rotate { get { return Input.GetKeyDown(KeyCode.R); } }
+    public static bool Drop { get { return Input.GetKeyDown(KeyCode.G); } }
+    public static float Scroll() { float y = Input.mouseScrollDelta.y; return Mathf.Abs(y) > 0.01f ? Mathf.Sign(y) : 0f; }
+    public static int SlotKey()
+    {
+        for (int i = 0; i < 8; i++) if (Input.GetKeyDown(KeyCode.Alpha1 + i)) return i;
+        return -1;
+    }
 #endif
 }
 

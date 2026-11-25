@@ -3,13 +3,25 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+public class BBPropertyDef
+{
+    public string name;
+    public int price;
+    public bool owned;
+    public Bounds bounds;
+    public Vector3 signPos;
+    public float signYaw;
+    public GameObject sign;
+}
+
 public class BBWorldRefs
 {
-    public GameObject press, pressLight, mixer, stash, bed, counter;
-    public Material pressMat;
+    public GameObject stash, bed, counter;
     public Light garageLight, storeLight;
-    public Vector3 spawn;
+    public Vector3 spawn, hqOrigin;
     public Bounds hideout;
+    public List<BBPropertyDef> props = new List<BBPropertyDef>();
+    public List<GameObject> atms = new List<GameObject>();
 }
 
 public static class BBWorld
@@ -119,10 +131,18 @@ public static class BBWorld
                 else if (i == 3 && j == 3) BuildGasStation(refs, m, c);
                 else if (i == 1 && j == 2) { m.Box(c + new Vector3(0, Curb + 0.01f, 0), new Vector3(bs - 5, 0.02f, bs - 5), BBPal.Grass); Park(m, c); }
                 else if (i == 2 && j == 2 || i == 3 && j == 0) Apartments(m, c, i == 3 ? 180 : 0);
+                else if (i == 3 && j == 1)
+                {
+                    m.Box(c + new Vector3(0, Curb + 0.01f, 0), new Vector3(bs - 5, 0.02f, bs - 5), BBPal.Concrete);
+                    refs.props.Add(Hollow(m, c + new Vector3(0, Curb, 2.5f), 0, 22f, 16f, 6f, BBPal.Steel, BBPal.SteelDark, true, "Warehouse", 20000));
+                    Tree(m, new Vector3(-12, 0, -11), 1.1f); Tree(m, new Vector3(12, 0, -11), 1.0f);
+                }
                 else if ((i == 1 || i == 2) && j == 1 || i == 0 && j == 3)
                 {
                     m.Box(c + new Vector3(0, Curb + 0.01f, 0), new Vector3(bs - 5, 0.02f, bs - 5), BBPal.Concrete);
-                    Shop(m, c + new Vector3(-7.5f, Curb, -7.5f), 0); Shop(m, c + new Vector3(7.5f, Curb, -7.5f), 0);
+                    if (i == 0 && j == 3) refs.props.Add(Hollow(m, c + new Vector3(-7.5f, Curb, -6.5f), 0, 11f, 9f, 3.6f, BBPal.Steel, BBPal.SteelDark, true, "Storage Unit", 3000));
+                    else Shop(m, c + new Vector3(-7.5f, Curb, -7.5f), 0);
+                    Shop(m, c + new Vector3(7.5f, Curb, -7.5f), 0);
                     Shop(m, c + new Vector3(-7.5f, Curb, 7.5f), 180); Shop(m, c + new Vector3(7.5f, Curb, 7.5f), 180);
                 }
                 else
@@ -131,7 +151,8 @@ public static class BBWorld
                     for (int q = 0; q < 4; q++)
                     {
                         Vector3 lot = c + new Vector3(q % 2 == 0 ? -7.5f : 7.5f, Curb, q < 2 ? -7.5f : 7.5f);
-                        House(m, lot, q < 2 ? 0 : 180);
+                        if (i == 2 && j == 0 && q == 0) refs.props.Add(Hollow(m, lot + new Vector3(0, 0, -0.5f), 0, 10f, 9f, 3.4f, BBPal.Mint, BBPal.Roofs[1], false, "Bungalow", 8000));
+                        else House(m, lot, q < 2 ? 0 : 180);
                     }
                 }
                 m.SetFrame(Matrix4x4.identity);
@@ -139,6 +160,7 @@ public static class BBWorld
             }
 
         StreetFurniture();
+        ATMs(refs);
         ParkedCars();
         Scenery();
         return refs;
@@ -571,38 +593,7 @@ public static class BBWorld
         r.garageLight.type = LightType.Point; r.garageLight.range = 13; r.garageLight.intensity = 2.2f; r.garageLight.color = BBPal.WindowLit;
         r.garageLight.shadows = LightShadows.None;
 
-        // ---- interactive stations (separate objects so they can be targeted) ----
-        var pm = new BBMesh();
-        pm.Box(new Vector3(0, 0.15f, 0), new Vector3(2.3f, 0.3f, 1.7f), BBPal.SteelDark);
-        pm.Box(new Vector3(0, 0.75f, 0), new Vector3(2.1f, 0.9f, 1.5f), BBPal.Bubblegum);
-        pm.Box(new Vector3(0, 1.3f, 0.35f), new Vector3(1.7f, 0.2f, 0.7f), BBPal.Steel);
-        pm.Cyl(new Vector3(0, 1.4f, 0.35f), 0.18f, 0.9f, 8, BBPal.Steel);
-        pm.Box(new Vector3(0, 2.25f, 0.35f), new Vector3(1.9f, 0.35f, 0.9f), BBPal.Bubblegum);
-        foreach (float x in new[] { -0.85f, 0.85f }) pm.Box(new Vector3(x, 1.75f, 0.35f), new Vector3(0.14f, 1.0f, 0.14f), BBPal.SteelDark);
-        pm.Box(new Vector3(0.6f, 0.95f, -0.77f), new Vector3(0.6f, 0.4f, 0.06f), BBPal.Panel);
-        pm.Box(new Vector3(0.45f, 0.98f, -0.81f), new Vector3(0.1f, 0.1f, 0.03f), BB.Lamp(BBPal.Good));
-        pm.Box(new Vector3(0.75f, 0.98f, -0.81f), new Vector3(0.1f, 0.1f, 0.03f), BB.Lamp(BBPal.Bad));
-        r.press = pm.Emit("Plush Press", root);
-        r.press.transform.position = g + new Vector3(-4.5f, 0.1f, 4.2f);
-        var pbc = r.press.AddComponent<BoxCollider>(); pbc.center = new Vector3(0, 1.2f, 0); pbc.size = new Vector3(2.3f, 2.4f, 1.7f);
-        r.pressMat = BB.NewMat(BBPal.Accent);
-        BB.SetEmit(r.pressMat, BBPal.Accent * 0.2f);
-        r.pressLight = BB.Prim(PrimitiveType.Cube, new Vector3(-0.3f, 0.95f, -0.78f), new Vector3(0.5f, 0.2f, 0.04f), r.pressMat, r.press.transform, false, "Status");
-        BB.Sign("PRESS", r.press.transform.position + new Vector3(-0.3f, 0.6f, -0.82f), 0, 0.04f, BBPal.Panel, root);
-
-        var mm = new BBMesh();
-        mm.Box(new Vector3(0, 0.95f, 0), new Vector3(2.6f, 0.1f, 1.2f), BBPal.Wood);
-        foreach (float x in new[] { -1.2f, 1.2f }) foreach (float z in new[] { -0.5f, 0.5f }) mm.Box(new Vector3(x, 0.45f, z), new Vector3(0.1f, 0.9f, 0.1f), BBPal.WoodDark);
-        mm.Cyl(new Vector3(-0.6f, 1.0f, 0), 0.38f, 0.22f, 10, BBPal.Mint, 0.45f);
-        mm.Cyl(new Vector3(0.2f, 1.0f, 0.15f), 0.08f, 0.35f, 6, BB.Lamp(BBPal.Butter));
-        mm.Cyl(new Vector3(0.45f, 1.0f, -0.15f), 0.07f, 0.42f, 6, BB.Lamp(BBPal.Accent));
-        mm.Cyl(new Vector3(0.7f, 1.0f, 0.2f), 0.09f, 0.3f, 6, BB.Lamp(BBPal.Lilac));
-        mm.Box(new Vector3(1.0f, 1.08f, -0.2f), new Vector3(0.3f, 0.16f, 0.3f), BBPal.Bubblegum);
-        r.mixer = mm.Emit("Mixing Table", root);
-        r.mixer.transform.position = g + new Vector3(0, 0.1f, 4.7f);
-        var mbc = r.mixer.AddComponent<BoxCollider>(); mbc.center = new Vector3(0, 0.6f, 0); mbc.size = new Vector3(2.6f, 1.2f, 1.2f);
-        BB.Sign("MIX", r.mixer.transform.position + new Vector3(0, 0.75f, -0.62f), 0, 0.04f, BBPal.Panel, root);
-
+        r.hqOrigin = g;
         var sm = new BBMesh();
         sm.Box(new Vector3(0, 0.45f, 0), new Vector3(1.8f, 0.9f, 1.3f), BBPal.Wood);
         for (float y = 0.2f; y < 0.9f; y += 0.25f) sm.Box(new Vector3(0, y, -0.66f), new Vector3(1.82f, 0.04f, 0.02f), BBPal.WoodDark);
@@ -719,6 +710,89 @@ public static class BBWorld
         Car(m, BBPal.CarPaint[1], false);
         Col(m, new Vector3(0, 0.9f, 0), new Vector3(1.9f, 1.8f, 4.4f));
         m.SetFrame(save);
+    }
+
+    // ---------------- Buyable property: an empty enterable building ----------------
+    static BBPropertyDef Hollow(BBMesh m, Vector3 origin, float yaw, float w, float d, float h, Color wall, Color roof, bool flat, string name, int price)
+    {
+        m.SetFrame(origin, yaw);
+        Color inside = BBPal.Hex("#DCD6E2"), trim = BBPal.Trim;
+        float door = flat ? Mathf.Min(5f, w * 0.45f) : 2.2f, doorH = flat ? 3.2f : 2.4f;
+        float side = (w - door) / 2;
+        m.Box(new Vector3(0, 0.05f, 0), new Vector3(w, 0.1f, d), BBPal.Concrete);
+        m.Box(new Vector3(0, h / 2, d / 2), new Vector3(w, h, 0.3f), wall);
+        m.Box(new Vector3(-w / 2, h / 2, 0), new Vector3(0.3f, h, d), wall);
+        m.Box(new Vector3(w / 2, h / 2, 0), new Vector3(0.3f, h, d), wall);
+        m.Box(new Vector3(-w / 2 + side / 2, h / 2, -d / 2), new Vector3(side, h, 0.3f), wall);
+        m.Box(new Vector3(w / 2 - side / 2, h / 2, -d / 2), new Vector3(side, h, 0.3f), wall);
+        m.Box(new Vector3(0, (h + doorH) / 2, -d / 2), new Vector3(door, h - doorH, 0.3f), wall);
+        m.Box(new Vector3(0, h / 2, d / 2 - 0.16f), new Vector3(w - 0.3f, h, 0.02f), inside);
+        m.Box(new Vector3(-w / 2 + 0.16f, h / 2, 0), new Vector3(0.02f, h, d - 0.3f), inside);
+        m.Box(new Vector3(w / 2 - 0.16f, h / 2, 0), new Vector3(0.02f, h, d - 0.3f), inside);
+        Col(m, new Vector3(0, h / 2, d / 2), new Vector3(w, h, 0.3f));
+        Col(m, new Vector3(-w / 2, h / 2, 0), new Vector3(0.3f, h, d));
+        Col(m, new Vector3(w / 2, h / 2, 0), new Vector3(0.3f, h, d));
+        Col(m, new Vector3(-w / 2 + side / 2, h / 2, -d / 2), new Vector3(side, h, 0.3f));
+        Col(m, new Vector3(w / 2 - side / 2, h / 2, -d / 2), new Vector3(side, h, 0.3f));
+        Col(m, new Vector3(0, (h + doorH) / 2, -d / 2), new Vector3(door, h - doorH, 0.3f));
+        if (flat)
+        {
+            for (float x = -w / 2 + 0.6f; x < w / 2; x += 1.2f)
+            {
+                m.Box(new Vector3(x, h / 2, -d / 2 - 0.17f), new Vector3(0.08f, h, 0.05f), BBPal.Dim(wall, 0.85f));
+                m.Box(new Vector3(x, h / 2, d / 2 + 0.17f), new Vector3(0.08f, h, 0.05f), BBPal.Dim(wall, 0.85f));
+            }
+            m.Box(new Vector3(0, h + 0.1f, 0), new Vector3(w + 0.4f, 0.25f, d + 0.4f), roof);
+            m.Box(new Vector3(0, doorH + 0.2f, -d / 2 + 0.4f), new Vector3(door, 0.4f, 0.5f), BBPal.Steel);
+        }
+        else
+        {
+            m.Box(new Vector3(0, h + 0.05f, 0), new Vector3(w + 0.4f, 0.14f, d + 0.4f), trim);
+            m.Gable(new Vector3(0, h + 0.1f, 0), w + 0.9f, d + 1.2f, 2.0f, roof, wall);
+            Window(m, new Vector3(-w / 4 - 0.6f, 2.0f, -d / 2), false, 1.3f, 1.1f, trim, -1);
+            Window(m, new Vector3(w / 4 + 0.6f, 2.0f, -d / 2), false, 1.3f, 1.1f, trim, -1);
+            m.Box(new Vector3(0, 0.15f, -d / 2 - 0.9f), new Vector3(2.6f, 0.3f, 1.6f), BBPal.Concrete);
+        }
+        m.Box(new Vector3(0, h - 0.06f, 0), new Vector3(w - 0.4f, 0.04f, d - 0.4f), BBPal.Hex("#EDE8F2"));
+        m.Box(new Vector3(0, h - 0.12f, 0), new Vector3(2.2f, 0.08f, 0.3f), BB.Lamp(BBPal.Hex("#FFF2D0")));
+        Col(m, new Vector3(0, h + 0.1f, 0), new Vector3(w, 0.3f, d));
+        Window(m, new Vector3(-w / 2, 2.0f, 0), true, 1.4f, 1.0f, trim, -1);
+        Window(m, new Vector3(w / 2, 2.0f, 0), true, 1.4f, 1.0f, trim, 1);
+        // driveway / walkway to the street
+        m.Box(new Vector3(0, 0.025f, -d / 2 - 3f), new Vector3(door + 0.6f, 0.03f, 6f), BBPal.Concrete);
+
+        var p = new BBPropertyDef();
+        p.name = name; p.price = price;
+        Vector3 cw = W(m, new Vector3(0, h / 2, 0));
+        bool swap = Mathf.Abs(Mathf.Sin(yaw * Mathf.Deg2Rad)) > 0.5f;
+        p.bounds = new Bounds(cw, swap ? new Vector3(d - 0.4f, h, w - 0.4f) : new Vector3(w - 0.4f, h, d - 0.4f));
+        p.signPos = W(m, new Vector3(door / 2 + 1.6f, 0, -d / 2 - 2.2f));
+        p.signYaw = Yaw(m);
+        return p;
+    }
+
+    static void ATMs(BBWorldRefs r)
+    {
+        var spots = new[] {
+            new Vector4(137.3f, Curb, 146.2f, 90f),
+            new Vector4(60f, Curb, 47.6f, 0f),
+            new Vector4(104f, Curb, 95.7f, 0f)
+        };
+        foreach (var sp in spots)
+        {
+            var m = new BBMesh();
+            m.Box(new Vector3(0, 0.95f, 0), new Vector3(0.9f, 1.9f, 0.7f), BBPal.Steel);
+            m.Box(new Vector3(0, 1.85f, -0.05f), new Vector3(0.95f, 0.3f, 0.75f), BBPal.Cop);
+            m.Box(new Vector3(0, 1.32f, -0.36f), new Vector3(0.55f, 0.4f, 0.03f), BB.Lamp(BBPal.Hex("#8FE3FF")));
+            m.Box(new Vector3(0, 1.0f, -0.4f), new Vector3(0.6f, 0.08f, 0.15f), BBPal.SteelDark);
+            m.Box(new Vector3(0, 0.75f, -0.37f), new Vector3(0.4f, 0.05f, 0.05f), BBPal.Panel);
+            var go = m.Emit("ATM", root);
+            go.transform.position = new Vector3(sp.x, sp.y, sp.z);
+            go.transform.rotation = Quaternion.Euler(0, sp.w, 0);
+            var bc = go.AddComponent<BoxCollider>(); bc.center = new Vector3(0, 1f, 0); bc.size = new Vector3(0.9f, 2f, 0.7f);
+            BB.Sign("ATM", go.transform.position + go.transform.rotation * new Vector3(0, 1.86f, -0.44f), sp.w, 0.04f, BBPal.Ink, root);
+            r.atms.Add(go);
+        }
     }
 
     // =====================================================================

@@ -16,6 +16,7 @@ public class BBPlayer : MonoBehaviour
     CharacterController cc;
     float pitch, yaw, vy, bob;
     Transform hands, handL, handR, phone, box;
+    string heldShown = "<none>";
     Vector2 sway;
 
     void Awake()
@@ -62,6 +63,49 @@ public class BBPlayer : MonoBehaviour
         foreach (var r in hands.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
     }
 
+    // Rebuild the little model in the right hand to match the selected hotbar item.
+    void RebuildHeld(string id)
+    {
+        for (int i = box.childCount - 1; i >= 0; i--) Destroy(box.GetChild(i).gameObject);
+        if (id == null) return;
+        Color c = BBGame.I.ItemColor(id);
+        if (id.StartsWith("B:"))
+        {
+            BB.CBox(box, Vector3.zero, new Vector3(0.11f, 0.14f, 0.11f), BBPal.Bubblegum);
+            BB.CBox(box, new Vector3(0, 0.02f, -0.056f), new Vector3(0.07f, 0.06f, 0.004f), c);
+            BB.CBox(box, new Vector3(0, 0.072f, 0), new Vector3(0.115f, 0.01f, 0.115f), BBPal.Ink);
+        }
+        else if (id.StartsWith("L:"))
+        {
+            BB.CBox(box, Vector3.zero, new Vector3(0.09f, 0.1f, 0.07f), c);
+            BB.CBox(box, new Vector3(-0.03f, 0.07f, 0), new Vector3(0.025f, 0.06f, 0.025f), c);
+            BB.CBox(box, new Vector3(0.03f, 0.07f, 0), new Vector3(0.025f, 0.06f, 0.025f), c);
+            BB.CBox(box, new Vector3(-0.02f, 0.015f, -0.036f), new Vector3(0.015f, 0.02f, 0.004f), BBPal.Panel);
+            BB.CBox(box, new Vector3(0.02f, 0.015f, -0.036f), new Vector3(0.015f, 0.02f, 0.004f), BBPal.Panel);
+            BB.CBox(box, new Vector3(0, -0.02f, -0.036f), new Vector3(0.04f, 0.008f, 0.004f), BBPal.Ink);
+        }
+        else if (id == "kit")
+        {
+            BB.CBox(box, Vector3.zero, new Vector3(0.16f, 0.1f, 0.12f), BBPal.Bubblegum);
+            BB.CBox(box, new Vector3(0, 0, -0.061f), new Vector3(0.1f, 0.05f, 0.004f), BBPal.Ink);
+        }
+        else if (id == "boxes")
+        {
+            for (int k = 0; k < 3; k++) BB.CBox(box, new Vector3(0, k * 0.03f, 0), new Vector3(0.12f, 0.025f, 0.12f), BBPal.Ink);
+        }
+        else if (id.StartsWith("ing"))
+        {
+            BB.CBox(box, Vector3.zero, new Vector3(0.06f, 0.13f, 0.06f), c);
+            BB.CBox(box, new Vector3(0, 0.08f, 0), new Vector3(0.035f, 0.04f, 0.035f), BBPal.SteelDark);
+        }
+        else
+        {
+            BB.CBox(box, new Vector3(0, 0.02f, 0.04f), new Vector3(0.22f, 0.18f, 0.2f), BBPal.Wood);
+            BB.CBox(box, new Vector3(0, 0.02f, -0.061f), new Vector3(0.23f, 0.03f, 0.004f), BBPal.WoodDark);
+        }
+        foreach (var r in box.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+    }
+
     public void Teleport(Vector3 p, float facingYaw)
     {
         cc.enabled = false; transform.position = p; cc.enabled = true;
@@ -97,7 +141,9 @@ public class BBPlayer : MonoBehaviour
         cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, Sprinting ? 80f : 72f, Time.deltaTime * 6f);
 
         // hands: phone when the phone is open, a blind box when carrying product, otherwise relaxed at the sides
-        bool phoneUp = g.PhoneOpen, holding = !phoneUp && g.CarryCount > 0;
+        string held = g.HeldId;
+        bool phoneUp = g.PhoneOpen, holding = !phoneUp && held != null;
+        if (held != heldShown) { heldShown = held; RebuildHeld(held); }
         sway = Vector2.Lerp(sway, -look * 0.004f, Time.deltaTime * 10f);
         float hb = Mathf.Sin(bob) * 0.012f * dir.magnitude, hb2 = Mathf.Abs(Mathf.Cos(bob)) * 0.01f * dir.magnitude;
         Vector3 rTarget = phoneUp ? new Vector3(0.07f, -0.17f, 0.32f) : holding ? new Vector3(0.2f, -0.24f, 0.36f) : new Vector3(0.26f, -0.42f, 0.3f);
