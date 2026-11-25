@@ -571,11 +571,7 @@ public static class BBWorld
         Col(m, new Vector3(-w / 2 + 0.7f, 1.2f, 1.8f), new Vector3(1f, 2.4f, 2.6f));
         BB.Sign("PLUSH HQ", W(m, new Vector3(0, h + 1.0f, -d / 2 - 0.5f)), 0, 0.1f, BBPal.Accent, root);
         // yard: old car, trash, overgrown bushes, fence
-        var save = m.M;
-        m.SetFrame(save * Matrix4x4.TRS(new Vector3(-7.5f, 0, -12f), Quaternion.Euler(0, 10, 0), Vector3.one));
-        Car(m, BBPal.Hex("#8E6A5A"), true);
-        Col(m, new Vector3(0, 1.0f, 0), new Vector3(1.9f, 2.0f, 4.4f));
-        m.SetFrame(save);
+        m.Box(new Vector3(-7.5f, 0.02f, -12f), new Vector3(3f, 0.02f, 5f), BBPal.Hex("#9A938F")); // old oil-stained parking spot
         m.Cyl(new Vector3(4f, 0, -7f), 0.33f, 1.0f, 8, BBPal.Hex("#4E6E5A"));
         m.Cyl(new Vector3(4.8f, 0, -7f), 0.33f, 1.0f, 8, BBPal.Hex("#4E6E5A"));
         Bush(m, new Vector3(-8.5f, 0, 6.5f), 1.4f, BBPal.LeafDark);

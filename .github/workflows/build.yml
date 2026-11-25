@@ -35,7 +35,6 @@ jobs:
           unity-version: '2022.3'
           version-file: 'None'
           build-targets: StandaloneWindows64
-          cache-installation: true
 
       - name: Activate Unity Personal license
         uses: RageAgainstThePixel/activate-unity-license@v2

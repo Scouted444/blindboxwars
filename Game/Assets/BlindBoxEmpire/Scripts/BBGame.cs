@@ -162,6 +162,7 @@ public partial class BBGame : MonoBehaviour
         PlaceStation(BBStationKind.Mixer, o + new Vector3(0, 0.1f, 4.7f), 0);
         PlaceStation(BBStationKind.Packager, o + new Vector3(-4.9f, 0.1f, -3.6f), -90);
         WireFixed();
+        Vehicle = BBVehicle.SpawnVan(w.hqOrigin + new Vector3(0, 0.1f, -11.5f), 180, root);
         MakeCustomers();
         MakeDealers();
         Add("kit", 1); Add("boxes", 10); Add("ing0", 3);
@@ -199,7 +200,8 @@ public partial class BBGame : MonoBehaviour
         UpdateCustomers();
         UpdateDealers();
 
-        bool chased = cops.Any(c => c.chasing);
+        UpdateLaw();
+        bool chased = cops.Any(c => c.chasing) || (policeCar != null && !policeCar.leaving);
         if (chased && !sirenSrc.isPlaying) sirenSrc.Play();
         if (!chased && sirenSrc.isPlaying) sirenSrc.Stop();
 
@@ -233,6 +235,7 @@ public partial class BBGame : MonoBehaviour
     void PassOut()
     {
         lastPassOutDay = day;
+        ResetLaw();
         string extra = "";
         if (!PlayerInHideout)
         {
@@ -247,6 +250,7 @@ public partial class BBGame : MonoBehaviour
 
     public void Busted()
     {
+        ResetLaw();
         foreach (var c in cops) if (c.chasing) c.StopChase();
         int units = 0;
         foreach (var s in hot)

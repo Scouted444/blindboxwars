@@ -198,7 +198,7 @@ public partial class BBGame
     void UpdatePlacement()
     {
         string h = HeldId;
-        int kind = (!UIOpen && h != null && h.StartsWith("S:")) ? int.Parse(h.Substring(2)) : -1;
+        int kind = (!UIOpen && !PlayerDriving && h != null && h.StartsWith("S:")) ? int.Parse(h.Substring(2)) : -1;
         if (kind != ghostKind)
         {
             if (ghost != null) Destroy(ghost);

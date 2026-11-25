@@ -91,6 +91,7 @@ public static class BBInp
     public static bool Phone { get { return K != null && K.tabKey.wasPressedThisFrame; } }
     public static bool Esc { get { return K != null && K.escapeKey.wasPressedThisFrame; } }
     public static bool Rotate { get { return K != null && K.rKey.wasPressedThisFrame; } }
+    public static bool Brake { get { return K != null && K.spaceKey.isPressed; } }
     public static bool Drop { get { return K != null && K.gKey.wasPressedThisFrame; } }
     public static float Scroll() { var m = Mouse.current; return m == null ? 0f : Mathf.Sign(m.scroll.ReadValue().y) * (Mathf.Abs(m.scroll.ReadValue().y) > 0.01f ? 1 : 0); }
     public static int SlotKey()
@@ -111,6 +112,7 @@ public static class BBInp
     public static bool Phone { get { return Input.GetKeyDown(KeyCode.Tab); } }
     public static bool Esc { get { return Input.GetKeyDown(KeyCode.Escape); } }
     public static bool Rotate { get { return Input.GetKeyDown(KeyCode.R); } }
+    public static bool Brake { get { return Input.GetKey(KeyCode.Space); } }
     public static bool Drop { get { return Input.GetKeyDown(KeyCode.G); } }
     public static float Scroll() { float y = Input.mouseScrollDelta.y; return Mathf.Abs(y) > 0.01f ? Mathf.Sign(y) : 0f; }
     public static int SlotKey()

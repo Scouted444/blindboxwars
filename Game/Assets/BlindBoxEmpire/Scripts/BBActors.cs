@@ -113,6 +113,30 @@ public class BBPlayer : MonoBehaviour
     }
 
     public bool Sprinting { get; private set; }
+    float orbitYaw, orbitPitch = 8f;
+
+    void DriveCamera(BBGame g, Vector2 look, bool ui)
+    {
+        var v = g.Vehicle;
+        cc.enabled = false;
+        transform.position = v.transform.position + Vector3.up * 0.2f;
+        hands.gameObject.SetActive(false);
+        if (look.sqrMagnitude > 0.0001f) { orbitYaw += look.x; orbitPitch = Mathf.Clamp(orbitPitch - look.y, -5f, 45f); }
+        else orbitYaw = Mathf.Lerp(orbitYaw, 0, Time.deltaTime * 0.8f);
+        Quaternion q = Quaternion.Euler(orbitPitch + 10f, v.transform.eulerAngles.y + orbitYaw, 0);
+        Vector3 pivot = v.transform.position + Vector3.up * 1.8f;
+        Vector3 want = pivot - q * Vector3.forward * 8.5f;
+        RaycastHit hit;
+        if (Physics.Linecast(pivot, want, out hit, ~0, QueryTriggerInteraction.Ignore) && hit.collider.attachedRigidbody == null)
+            want = hit.point + (pivot - want).normalized * 0.4f;
+        cam.transform.position = want;
+        cam.transform.rotation = Quaternion.LookRotation(pivot - want);
+        cam.fieldOfView = Mathf.Lerp(cam.fieldOfView, 70f + Mathf.Abs(v.speed) * 0.6f, Time.deltaTime * 3f);
+        g.prompt = ui ? null : "[E] Get out   ·   WASD drive   ·   Space brake";
+        if (!ui && BBInp.Interact) g.ExitVehicle();
+    }
+
+    public void SetYaw(float y) { yaw = y; pitch = 0; }
 
     void Update()
     {
@@ -122,10 +146,13 @@ public class BBPlayer : MonoBehaviour
         Cursor.visible = ui;
 
         Vector2 look = ui ? Vector2.zero : BBInp.Look();
+        if (g.PlayerDriving) { DriveCamera(g, look, ui); return; }
+        if (!cc.enabled) cc.enabled = true;
+        if (!hands.gameObject.activeSelf) hands.gameObject.SetActive(true);
         yaw += look.x; pitch = Mathf.Clamp(pitch - look.y, -85f, 85f);
         transform.rotation = Quaternion.Euler(0, yaw, 0);
 
-        Vector2 mv = ui ? Vector2.zero : BBInp.Move();
+        Vector2 mv = ui || g.PlayerFrozen ? Vector2.zero : BBInp.Move();
         Sprinting = !ui && BBInp.Sprint && mv.y > 0;
         float speed = (Sprinting ? 7.5f : 4.5f) * speedMult;
         Vector3 dir = (transform.forward * mv.y + transform.right * mv.x);
@@ -432,7 +459,8 @@ public class BBCar : MonoBehaviour
 
 public class BBCop : MonoBehaviour
 {
-    public bool chasing;
+    public bool chasing, searching;
+    public float stunUntil;
     CharacterController cc;
     Vector3 target, lastSeen, lastPos;
     float lostFor, vy, stuck;
@@ -496,6 +524,7 @@ public class BBCop : MonoBehaviour
     public void StartChase()
     {
         if (chasing) return;
+        searching = false;
         chasing = true; lostFor = 0;
         lastSeen = BBGame.I.player.transform.position;
         siren.gameObject.SetActive(true);
@@ -528,9 +557,20 @@ public class BBCop : MonoBehaviour
         float dist = Vector3.Distance(transform.position, pp);
         float sp;
 
+        if (Time.time < stunUntil) { body.speed = 0; return; }
+        if (searching)
+        {
+            sp = dist > 1.5f ? MoveToward(pp, 2.4f) : 0f;
+            Vector3 face = pp - transform.position; face.y = 0;
+            if (face.sqrMagnitude > 0.01f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(face), Time.deltaTime * 6f);
+            body.speed = sp; body.lookTarget = g.player.cam.transform;
+            return;
+        }
         if (!chasing)
         {
-            if (g.Curfew && !g.PlayerInHideout && CanSee(pp, g.SpotRange)) { StartChase(); return; }
+            if ((g.Curfew || g.WantedLevel > 0) && !g.PlayerInHideout && CanSee(pp, g.SpotRange)) { StartChase(); return; }
+            if (!g.Curfew && !g.PlayerDriving && !g.PlayerInHideout && dist < 6f && g.CanSearch && UnityEngine.Random.value < 0.3f * Time.deltaTime && CanSee(pp, 7f))
+            { g.BeginSearch(this); return; }
             sp = MoveToward(target, 1.7f);
             Vector3 flat = target - transform.position; flat.y = 0;
             if (flat.magnitude < 0.6f) NextPatrol();
@@ -550,8 +590,8 @@ public class BBCop : MonoBehaviour
             if (lostFor > 6f || dist > 55f || g.PlayerInHideout) { StopChase(); g.OnCopLost(); sp = 0; }
             else
             {
-                sp = MoveToward(lastSeen, 6.9f);
-                if (dist < 1.6f) g.Busted();
+                sp = dist < 1.3f ? 0f : MoveToward(lastSeen, 6.9f);
+                if (dist < 1.6f) g.CopReachedPlayer(this);
             }
         }
         body.speed = sp;

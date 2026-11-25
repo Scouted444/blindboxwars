@@ -92,6 +92,7 @@ public partial class BBGame
         }
 
         DrawHotbar(W, H);
+        DrawLawHud(W, H);
 
         int unread = customers.Sum(c => c.unread);
         GUI.Label(new Rect(W - 330, H - 40, 310, 28), "[Tab] Phone" + (unread > 0 ? "  (" + unread + " new)" : ""),
