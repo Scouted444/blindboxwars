@@ -10,6 +10,6 @@ Windows SmartScreen may warn because the exe is unsigned: More info → Run anyw
 WASD move · Shift sprint · Space jump · E use · Tab phone · Esc close / pause
 
 ## How it's built
-Every push to `main` runs `.github/workflows/build.yml`, which installs Unity 2022.3 on a GitHub Windows runner,
+Every push to `main` runs `.github/workflows/build.yml`, which installs Unity 2022.3 on a GitHub Windows runner (cached between runs),
 activates a free Personal license from the `UNITY_USERNAME` / `UNITY_PASSWORD` repo secrets, and builds the game.
 The whole town is generated from code at runtime (`Game/Assets/BlindBoxEmpire/Scripts`), so there are no scenes or prefabs to maintain.

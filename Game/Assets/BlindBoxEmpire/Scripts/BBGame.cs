@@ -14,6 +14,7 @@ public class BBCustomer
 {
     public string name;
     public Color skin, shirt, hat;
+    public BBHumanStyle style;
     public int[] prefs;
     public float obs;              // obsession 0..1: higher pays more and texts more
     public bool unlocked, referred;
@@ -56,6 +57,8 @@ public class BBGame : MonoBehaviour
     enum UI { None, Phone, Mixer, Shop, Stash, Message }
     UI ui = UI.None;
     public bool UIOpen { get { return ui != UI.None; } }
+    public bool PhoneOpen { get { return ui == UI.Phone; } }
+    public int CarryCount { get { return Count(carry); } }
     public string prompt;
 
     int cash = 300, kits = 1, day = 1, dealsDone, lastPassOutDay = 0;
@@ -99,7 +102,15 @@ public class BBGame : MonoBehaviour
         RenderSettings.skybox = null;
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
         RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Linear;
-        RenderSettings.fogStartDistance = 70; RenderSettings.fogEndDistance = 280;
+        RenderSettings.fogStartDistance = 80; RenderSettings.fogEndDistance = 520;
+        QualitySettings.shadowDistance = 90f;
+        QualitySettings.shadowCascades = 2;
+        QualitySettings.shadowResolution = ShadowResolution.VeryHigh;
+        QualitySettings.shadows = ShadowQuality.All;
+        QualitySettings.antiAliasing = 4;
+        QualitySettings.pixelLightCount = 4;
+        sun.shadowStrength = 0.85f; sun.shadowBias = 0.04f; sun.shadowNormalBias = 0.3f;
+        BuildSky();
 
         var pg = new GameObject("Player");
         player = pg.AddComponent<BBPlayer>();
@@ -108,6 +119,8 @@ public class BBGame : MonoBehaviour
         cops.Add(BBCop.Spawn(2, 2, npcRoot));
         cops.Add(BBCop.Spawn(4, 1, npcRoot));
         cops.Add(BBCop.Spawn(1, 4, npcRoot));
+        BBPed.SpawnMany(20, npcRoot, new System.Random(5));
+        BBCar.SpawnMany(9, npcRoot, new System.Random(9));
 
         sfx = gameObject.AddComponent<AudioSource>();
         sirenSrc = gameObject.AddComponent<AudioSource>();
@@ -117,6 +130,8 @@ public class BBGame : MonoBehaviour
         clipCash = BB.Tone("cash", new float[] { 659, 880, 1319 }, 0.07f, 0.35f);
         clipBust = BB.Tone("bust", new float[] { 330, 220, 147 }, 0.2f, 0.4f, true);
         clipDone = BB.Tone("done", new float[] { 523, 659, 784 }, 0.09f, 0.35f);
+        var amb = gameObject.AddComponent<AudioSource>();
+        amb.clip = BB.Ambience(); amb.loop = true; amb.volume = 0.12f; amb.Play();
 
         WireStations();
         MakeCustomers();
@@ -158,6 +173,7 @@ public class BBGame : MonoBehaviour
             c.skin = BBPal.Skin[Random.Range(0, BBPal.Skin.Length)];
             c.shirt = BBPal.Clothes[Random.Range(0, BBPal.Clothes.Length)];
             c.hat = BBPal.Walls[Random.Range(0, BBPal.Walls.Length)];
+            c.style = BBHumanStyle.Random(new System.Random(n.GetHashCode() & 0x7fffffff));
             int a = Random.Range(0, 6), b; do { b = Random.Range(0, 6); } while (b == a);
             c.prefs = new[] { a, b };
             customers.Add(c);
@@ -231,24 +247,96 @@ public class BBGame : MonoBehaviour
         toasts.RemoveAll(t => Time.time > t.until);
     }
 
+    // ---- sky dome ----
+    Mesh skyMesh;
+    Transform skyT, sunDisc, moonDisc;
+    Vector3[] skyDirs;
+    float skyRefreshAt;
+
+    void BuildSky()
+    {
+        var b = new BBMesh();
+        b.Blob(Vector3.zero, Vector3.one * 900f, Color.white, 24, 12);
+        skyMesh = b.Build("Sky");
+        var verts = skyMesh.vertices;
+        skyDirs = new Vector3[verts.Length];
+        for (int i = 0; i < verts.Length; i++) skyDirs[i] = verts[i].normalized;
+        var sh = Shader.Find("BB/Sky");
+        var skyMat = new Material(sh != null ? sh : Shader.Find("Unlit/Color"));
+        skyMat.renderQueue = 1010;
+        var discMat = new Material(skyMat); discMat.renderQueue = 1020;
+        var go = new GameObject("Sky");
+        go.AddComponent<MeshFilter>().sharedMesh = skyMesh;
+        var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterial = skyMat;
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
+        skyT = go.transform;
+        var sb = new BBMesh(); sb.Blob(Vector3.zero, Vector3.one * 22f, BBPal.Hex("#FFF6E0"), 10, 6);
+        sunDisc = new GameObject("SunDisc").transform; sunDisc.SetParent(skyT, false);
+        sunDisc.gameObject.AddComponent<MeshFilter>().sharedMesh = sb.Build("SunDisc");
+        sunDisc.gameObject.AddComponent<MeshRenderer>().sharedMaterial = discMat;
+        var mb = new BBMesh(); mb.Blob(Vector3.zero, Vector3.one * 14f, BBPal.Hex("#DDE6FF"), 10, 6);
+        moonDisc = new GameObject("MoonDisc").transform; moonDisc.SetParent(skyT, false);
+        moonDisc.gameObject.AddComponent<MeshFilter>().sharedMesh = mb.Build("MoonDisc");
+        moonDisc.gameObject.AddComponent<MeshRenderer>().sharedMaterial = discMat;
+    }
+
     void UpdateLighting()
     {
         float f = minutes / 1440f;
         sun.transform.rotation = Quaternion.Euler(f * 360f - 90f, -35f, 0);
+        moon.transform.rotation = Quaternion.Euler(f * 360f + 90f, -35f, 0);
         float s = Mathf.Sin(f * Mathf.PI * 2f - Mathf.PI / 2f);
         float dayK = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(-0.2f, 0.35f, s));
-        sun.intensity = 1.25f * dayK;
-        sun.color = Color.Lerp(BBPal.Hex("#FFB27A"), BBPal.Sun, Mathf.InverseLerp(0f, 0.6f, s));
-        moon.intensity = 0.35f * (1 - dayK);
-        Color sky = Color.Lerp(BBPal.SkyNight, BBPal.SkyDay, dayK);
-        player.cam.backgroundColor = sky;
-        RenderSettings.fogColor = sky;
-        RenderSettings.ambientSkyColor = Color.Lerp(BBPal.Hex("#2A2850"), BBPal.Hex("#C9D8F2"), dayK);
-        RenderSettings.ambientEquatorColor = Color.Lerp(BBPal.Hex("#241E3A"), BBPal.Hex("#E8D9E8"), dayK);
-        RenderSettings.ambientGroundColor = Color.Lerp(BBPal.Hex("#141020"), BBPal.Hex("#6E5A6E"), dayK);
-        BB.SetEmit(w.windowMat, BBPal.WindowLit * (1 - dayK) * 1.6f);
-        BB.SetEmit(w.lampMat, BBPal.WindowLit * (0.15f + (1 - dayK) * 3f));
-        w.garageLight.intensity = Mathf.Lerp(3f, 1f, dayK);
+        float dusk = Mathf.Clamp01(1f - Mathf.Abs(s) * 3.2f);           // strongest at sunrise / sunset
+        sun.intensity = 1.2f * dayK;
+        sun.color = Color.Lerp(BBPal.Sunset, BBPal.Sun, Mathf.InverseLerp(0f, 0.55f, s));
+        moon.intensity = 0.28f * (1 - dayK);
+
+        Color zenith = Color.Lerp(BBPal.SkyNight, BBPal.SkyDay, dayK);
+        Color horizon = Color.Lerp(BBPal.SkyNightHorizon, BBPal.SkyHorizon, dayK);
+        horizon = Color.Lerp(horizon, BBPal.Sunset, dusk * 0.65f);
+        player.cam.backgroundColor = horizon;
+        RenderSettings.fogColor = Color.Lerp(horizon, zenith, 0.25f);
+
+        Shader.SetGlobalColor("_BBSky", Color.Lerp(BBPal.Hex("#2A2A52"), BBPal.Hex("#9AA8C6"), dayK) + BBPal.Sunset * dusk * 0.12f);
+        Shader.SetGlobalColor("_BBGround", Color.Lerp(BBPal.Hex("#141020"), BBPal.Hex("#5E5250"), dayK));
+        Shader.SetGlobalFloat("_BBGlow", Mathf.Clamp01((1 - dayK) * 1.3f));
+        Shader.SetGlobalColor("_BBGlowColor", BBPal.WindowLit);
+
+        BBPost.Exposure = Mathf.Lerp(1.18f, 1.0f, dayK);
+        BBPost.Bloom = Mathf.Lerp(0.95f, 0.45f, dayK);
+        BBPost.Tint = Color.Lerp(new Color(0.86f, 0.92f, 1.12f), new Color(1.04f, 1.0f, 0.95f), dayK);
+        BBPost.Saturation = Mathf.Lerp(1.0f, 1.14f, dayK);
+
+        if (skyT != null)
+        {
+            skyT.position = player.cam.transform.position;
+            Vector3 sd = -sun.transform.forward;
+            sunDisc.localPosition = sd * 820f;
+            moonDisc.localPosition = sun.transform.forward * 820f;
+            if (Time.time >= skyRefreshAt)
+            {
+                skyRefreshAt = Time.time + 0.25f;
+                var cols = new Color[skyDirs.Length];
+                for (int i = 0; i < skyDirs.Length; i++)
+                {
+                    Vector3 d = skyDirs[i];
+                    float e = Mathf.Clamp01(d.y);
+                    Color c = Color.Lerp(horizon, zenith, Mathf.Pow(e, 0.55f));
+                    if (d.y < 0) c = Color.Lerp(horizon, BBPal.Dim(horizon, 0.7f), -d.y * 2f);
+                    float sunGlow = Mathf.Pow(Mathf.Max(0, Vector3.Dot(d, sd)), 10f);
+                    c += BBPal.Sunset * sunGlow * (0.25f + dusk * 0.6f) * Mathf.Clamp01(dayK + dusk);
+                    if (dayK < 0.5f && d.y > 0.1f && (BB.Hash(i, 7) % 23) == 0) c += Color.white * (0.5f - dayK) * 1.2f; // stars
+                    c.a = 1;
+                    cols[i] = c;
+                }
+                skyMesh.colors = cols;
+            }
+            sunDisc.gameObject.SetActive(s > -0.1f);
+            moonDisc.gameObject.SetActive(s < 0.15f);
+        }
+        w.garageLight.intensity = Mathf.Lerp(2.6f, 0.9f, dayK);
+        if (w.storeLight != null) w.storeLight.intensity = Mathf.Lerp(2.0f, 1.0f, dayK);
     }
 
     void OnNewDay()

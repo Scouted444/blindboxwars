@@ -8,12 +8,25 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: Game/Library
+          key: library-${{ hashFiles('Game/Packages/manifest.json') }}-${{ github.sha }}
+          restore-keys: |
+            library-${{ hashFiles('Game/Packages/manifest.json') }}-
+            library-
 
       - name: Install Unity
         id: unity-setup
@@ -22,6 +35,7 @@ jobs:
           unity-version: '2022.3'
           version-file: 'None'
           build-targets: StandaloneWindows64
+          cache-installation: true
 
       - name: Activate Unity Personal license
         uses: RageAgainstThePixel/activate-unity-license@v2
@@ -44,13 +58,26 @@ jobs:
           if (!(Test-Path "$proj\Build\BlindBoxWars\BlindBoxWars.exe")) { Write-Error "No exe produced"; exit 1 }
           Compress-Archive -Path "$proj\Build\BlindBoxWars\*" -DestinationPath "$env:GITHUB_WORKSPACE\BlindBoxWars-Windows.zip"
 
-      - name: Upload build log
+      - name: Publish build log to ci-logs branch
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: unity-build-log
-          path: Game/build.log
-          if-no-files-found: ignore
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "ci-logs"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $log = Join-Path $env:GITHUB_WORKSPACE "Game/build.log"
+          if (Test-Path $log) {
+            # Drop any line containing an e-mail address before publishing (repo is public).
+            Get-Content $log | Where-Object { $_ -notmatch '@' } | Set-Content (Join-Path $dir "build.log")
+            Get-Content $log | Select-String -Pattern 'error CS|Shader error|BUILD RESULT|Exception' | ForEach-Object { $_.Line } | Where-Object { $_ -notmatch '@' } | Set-Content (Join-Path $dir "errors.txt")
+          }
+          "run=${{ github.run_number }} sha=${{ github.sha }} status=${{ job.status }}" | Set-Content (Join-Path $dir "status.txt")
+          Set-Location $dir
+          git init -q
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          git add -A
+          git commit -q -m "build ${{ github.run_number }}: ${{ job.status }}"
+          git push -q --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:ci-logs
 
       - name: Publish download (GitHub Release)
         uses: softprops/action-gh-release@v2
