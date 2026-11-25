@@ -108,6 +108,7 @@ public static class BBWorld
                 }
             }
         g.Emit("Roads", root, null, false);
+        BB.Solid(cols, new Vector3(max / 2, -0.5f, max / 2), new Vector3(1400, 1, 1400), 0, "Ground");
 
         // ---------- blocks ----------
         for (int i = 0; i < N - 1; i++)
